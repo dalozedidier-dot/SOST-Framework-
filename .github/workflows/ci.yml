@@ -1,16 +1,15 @@
-name: ci
+name: Band suite (SOST)
 
 on:
-  workflow_dispatch:
   push:
     branches: [ "main" ]
-  schedule:
-    - cron: "0 */6 * * *"
+  workflow_dispatch:
 
 jobs:
   band_suite:
     runs-on: ubuntu-latest
-
+    env:
+      PYTHONPATH: .
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,52 +19,20 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Install
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install -U pip
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          fi
-          if [ -f pyproject.toml ]; then
-            pip install .
-          elif [ -f setup.py ]; then
-            pip install .
-          fi
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install numpy pandas
 
       - name: Run band suite
         shell: bash
         run: |
-          set +e
-          rm -rf _ci_out
-          mkdir -p _ci_out
-          python scripts/ci_band_suite.py --outdir "_ci_out/bands" 2>&1 | tee _ci_out/ci_stdout.log
-          echo $? > _ci_out/exit_code.txt
-          exit 0
-
-      - name: Show quick summary
-        if: always()
-        shell: bash
-        run: |
           set -euo pipefail
-          echo "exit_code:"
-          cat _ci_out/exit_code.txt || true
-          echo ""
-          if [ -f _ci_out/band_suite_summary.json ]; then
-            echo "band_suite_summary.json:"
-            cat _ci_out/band_suite_summary.json
-          else
-            echo "No band_suite_summary.json found"
-          fi
-          echo ""
-          echo "Top files:"
-          find _ci_out -maxdepth 3 -type f -print || true
-          echo ""
-          if [ -f _ci_out/exception.txt ]; then
-            echo "exception.txt:"
-            sed -n '1,200p' _ci_out/exception.txt
-          fi
+          mkdir -p _ci_out
+          python scripts/ci_band_suite.py --pattern "test_data/band_*.csv" --outdir "_ci_out"
 
       - name: Upload artifacts
         if: always()
@@ -73,15 +40,3 @@ jobs:
         with:
           name: band_suite_artifacts
           path: _ci_out/
-          retention-days: 30
-          if-no-files-found: error
-
-      - name: Fail only on fatal errors
-        shell: bash
-        run: |
-          set -euo pipefail
-          code=$(cat _ci_out/exit_code.txt || echo 99)
-          echo "suite_exit_code=$code"
-          if [ "$code" = "2" ] || [ "$code" = "99" ]; then
-            exit 1
-          fi
