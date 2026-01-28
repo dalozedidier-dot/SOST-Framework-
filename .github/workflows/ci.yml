@@ -2,14 +2,15 @@ name: Band suite (SOST)
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
+  pull_request:
   workflow_dispatch:
 
 jobs:
   band_suite:
     runs-on: ubuntu-latest
-    env:
-      PYTHONPATH: .
+    timeout-minutes: 20
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -19,13 +20,17 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install
+      - name: Install dependencies (best effort)
         shell: bash
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install numpy pandas
+          if [ -f pyproject.toml ]; then
+            python -m pip install -e ".[dev]" || python -m pip install -e .
+          elif [ -f requirements.txt ]; then
+            python -m pip install -r requirements.txt
+          fi
+          python -m pip install pyyaml
 
       - name: Run band suite
         shell: bash
@@ -38,5 +43,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: band_suite_artifacts
+          name: sost_band_suite_ci_out
           path: _ci_out/
+          if-no-files-found: warn
