@@ -1,0 +1,59 @@
+diff -ruN '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=.pytest_cache' /mnt/data/orig/sost/SOST-Framework--main/.github/workflows/band-suite.yml /mnt/data/work/sost/SOST-Framework--main/.github/workflows/band-suite.yml
+--- /mnt/data/orig/sost/SOST-Framework--main/.github/workflows/band-suite.yml	2026-01-28 22:30:27.000000000 +0000
++++ /mnt/data/work/sost/SOST-Framework--main/.github/workflows/band-suite.yml	2026-01-28 22:52:01.474103984 +0000
+@@ -2,8 +2,7 @@
+ 
+ on:
+   workflow_dispatch:
+-  push:
+-    branches: [ "main" ]
++  # NB: on évite de dupliquer la CI (ci.yml couvre déjà push/PR).
+ 
+ jobs:
+   band_suite:
+@@ -48,10 +47,12 @@
+ 
+       - name: Run band suite (auto-detect CLI)
+         shell: bash
++        env:
++          PYTHONPATH: .
+         run: |
+           set -euo pipefail
+           mkdir -p _ci_out
+-          python scripts/ci_band_suite.py --outdir "_ci_out/bands" 2>&1 | tee _ci_out/ci_stdout.log
++          python scripts/ci_band_suite.py --outdir "_ci_out" 2>&1 | tee _ci_out/ci_stdout.log
+ 
+       - name: Show quick summary
+         if: always()
+diff -ruN '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=.pytest_cache' /mnt/data/orig/sost/SOST-Framework--main/.github/workflows/ci.yml /mnt/data/work/sost/SOST-Framework--main/.github/workflows/ci.yml
+--- /mnt/data/orig/sost/SOST-Framework--main/.github/workflows/ci.yml	2026-01-28 22:30:27.000000000 +0000
++++ /mnt/data/work/sost/SOST-Framework--main/.github/workflows/ci.yml	2026-01-28 22:51:32.802601920 +0000
+@@ -10,6 +10,9 @@
+   band_suite:
+     runs-on: ubuntu-latest
+     timeout-minutes: 20
++    env:
++      # Repo non packagé: on force l'import du package local `sost/`
++      PYTHONPATH: .
+ 
+     steps:
+       - name: Checkout
+@@ -20,16 +23,12 @@
+         with:
+           python-version: "3.11"
+ 
+-      - name: Install dependencies (best effort)
++      - name: Install dependencies (minimal)
+         shell: bash
+         run: |
+           set -euo pipefail
+           python -m pip install --upgrade pip
+-          if [ -f pyproject.toml ]; then
+-            python -m pip install -e ".[dev]" || python -m pip install -e .
+-          elif [ -f requirements.txt ]; then
+-            python -m pip install -r requirements.txt
+-          fi
++          # Le repo n'est pas packagé (pas de pyproject/setup), on installe seulement le strict nécessaire.
+           python -m pip install pyyaml
+ 
+       - name: Run band suite
