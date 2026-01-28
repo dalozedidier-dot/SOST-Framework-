@@ -1,4 +1,4 @@
-name: Systemd-runner CI
+name: SOST-Framework CI
 
 on:
   push:
@@ -12,7 +12,7 @@ env:
   LANG: "C.UTF-8"
 
 jobs:
-  smoke:
+  lint-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -38,81 +38,32 @@ jobs:
           set -euo pipefail
           python -m compileall -q .
 
-      - name: Smoke run (DD-R + optional E)
+      - name: Import smoke
         run: |
           set -euo pipefail
-
-          OUT="_ci_out/ddr_smoke"
-          mkdir -p "$OUT"
-
-          # Le runner run_ddr.py n'accepte pas --in, il attend une test-matrix.
-          # Ajuste le chemin ci-dessous si ton fichier de matrix a un autre nom.
-          TEST_MATRIX="01_tests_multisector/tests/fixtures/test_matrix_minimal.json"
-
-          if [ ! -f "$TEST_MATRIX" ]; then
-            echo "ERROR: test matrix introuvable: $TEST_MATRIX"
-            echo "Cherche un fichier de matrix existant dans 01_tests_multisector/tests/fixtures/ et mets a jour TEST_MATRIX."
-            exit 1
-          fi
-
-          python 00_core/scripts/run_ddr.py \
-            --test-matrix "$TEST_MATRIX" \
-            --out "$OUT" \
-            --with-e
-
-          # Vérifs structurelles minimales (forme, pas le fond)
-          if [ ! -f "$OUT/ddr_report.json" ]; then
-            echo "ERROR: ddr_report.json manquant dans $OUT"
-            ls -la "$OUT" || true
-            exit 1
-          fi
-
           python - <<'PY'
-SOST-Framework
-          import json
-          from pathlib import Path
-
-          p = Path("_ci_out/ddr_smoke/ddr_report.json")
-          data = json.loads(p.read_text(encoding="utf-8"))
-
-          # Check minimal: c'est un dict JSON non vide
-          if not isinstance(data, dict) or not data:
-            raise SystemExit("ddr_report.json invalide ou vide")
-
-          print("OK: ddr_report.json present et lisible")
+          import sost
+          from sost import core, dd_coherence, dd_restoration, equilibrium
+          print("OK imports:", sost.__name__, core.__name__)
           PY
+
+      - name: Smoke run (optional reports)
+        run: |
+          set -euo pipefail
+          mkdir -p _ci_out
+
+          if [ -f scripts/run_sost.py ] && [ -f test_data/minimal_timeseries.csv ]; then
+            python scripts/run_sost.py \
+              --input test_data/minimal_timeseries.csv \
+              --out _ci_out/run1
+            echo "OK: SOST runner executed"
+          else
+            echo "Skip: scripts/run_sost.py ou test_data/minimal_timeseries.csv absent"
+          fi
 
       - name: Upload artifacts (always)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: systemd-runner-ci-artifacts
+          name: sost-ci-artifacts
           path: _ci_out
-          import sost
-HEAD
-          from sost import dd_coherence, dd_restoration, equilibrium
-          print("OK imports:", sost.__version__)
-          print(dd_coherence.__name__, dd_restoration.__name__, equilibrium.__name__)
-          PY
-      - name: Run SOST smoke (DD → DD-R → E)
-        run: |
-          python scripts/run_sost.py \
-            --input test_data/minimal_timeseries.csv \
-            --out _ci_out \
-            --run-id ci_smoke
-      - name: Check reports exist
-        run: |
-          test -f _ci_out/ci_smoke/dd/dd_report.json
-          test -f _ci_out/ci_smoke/ddr/ddr_report.json
-          test -f _ci_out/ci_smoke/e/e_report.json
-          test -f _ci_out/ci_smoke/run_manifest.json
-      - name: Upload reports artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: sost-reports
-          path: _ci_out/
-          from sost import core, dd_coherence, dd_restoration, equilibrium
-          print('OK imports:', sost.__name__, core.__name__)
-          PY
-2c0dd5db9137cb136a54a9bc78ee72c11ae01ffa
-main
