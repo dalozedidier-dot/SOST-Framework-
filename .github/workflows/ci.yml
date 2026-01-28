@@ -2,14 +2,18 @@ name: Band suite (SOST)
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
+  pull_request:
   workflow_dispatch:
 
 jobs:
   band_suite:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
+      # Repo non packagé: on force l'import du package local `sost/`
       PYTHONPATH: .
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -19,13 +23,13 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install
+      - name: Install dependencies (minimal)
         shell: bash
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install numpy pandas
+          # Le repo n'est pas packagé (pas de pyproject/setup), on installe seulement le strict nécessaire.
+          python -m pip install pyyaml
 
       - name: Run band suite
         shell: bash
@@ -38,5 +42,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: band_suite_artifacts
+          name: sost_band_suite_ci_out
           path: _ci_out/
+          if-no-files-found: warn

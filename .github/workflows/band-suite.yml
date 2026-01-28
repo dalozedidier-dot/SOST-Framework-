@@ -2,8 +2,7 @@ name: band_suite
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ "main" ]
+  # NB: on évite de dupliquer la CI (ci.yml couvre déjà push/PR).
 
 jobs:
   band_suite:
@@ -48,10 +47,12 @@ jobs:
 
       - name: Run band suite (auto-detect CLI)
         shell: bash
+        env:
+          PYTHONPATH: .
         run: |
           set -euo pipefail
           mkdir -p _ci_out
-          python scripts/ci_band_suite.py --outdir "_ci_out/bands" 2>&1 | tee _ci_out/ci_stdout.log
+          python scripts/ci_band_suite.py --outdir "_ci_out" 2>&1 | tee _ci_out/ci_stdout.log
 
       - name: Show quick summary
         if: always()
