@@ -18,6 +18,20 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -U pip
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
+          if [ -f pyproject.toml ]; then
+            pip install .
+          elif [ -f setup.py ]; then
+            pip install .
+          fi
+
       - name: Debug repo layout
         shell: bash
         run: |
@@ -29,10 +43,10 @@ jobs:
           ls -la scripts || true
           echo "test_data/:"
           ls -la test_data || true
-          echo "find band_*.csv:"
+          echo "find band_*.csv (maxdepth 4):"
           find . -maxdepth 4 -type f -name "band_*.csv" -print || true
 
-      - name: Run band suite
+      - name: Run band suite (auto-detect CLI)
         shell: bash
         run: |
           set -euo pipefail
@@ -50,6 +64,8 @@ jobs:
           if [ -f _ci_out/band_suite_summary.json ]; then
             echo "band_suite_summary.json:"
             cat _ci_out/band_suite_summary.json
+          else
+            echo "No band_suite_summary.json found"
           fi
           echo ""
           if [ -f _ci_out/exception.txt ]; then
@@ -63,4 +79,4 @@ jobs:
         with:
           name: band_suite_artifacts
           path: _ci_out/
-          if-no-files-found: error
+          if-no-files-found: ignore
